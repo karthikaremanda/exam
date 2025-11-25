@@ -1,0 +1,505 @@
+
+# SE Internal Lab II — Detailed Step-by-Step Solutions (Set 1 & Set 2)
+
+**Note:** This document was prepared using the lab question files you uploaded (Set 1 and Set 2). See references at the end.  
+fileciteturn0file0  
+fileciteturn0file1
+
+---
+
+## Format
+For each question:  
+1. **Goal / Scenario** — short summary.  
+2. **Step-by-step commands** — exact terminal/console commands you can run.  
+3. **Expected output** — sample text you should see after running the command (trimmed for brevity).  
+4. **Notes / Troubleshooting** — common errors and fixes.
+
+---
+
+# SET 1
+
+## Q1 — Jenkins Pipeline for a Java Project
+**Goal:** Pull a Maven Java project from GitHub and automate build using a Jenkins pipeline.
+
+### Pre-reqs
+- Jenkins installed & running (port 8080).
+- Java JDK and Maven installed on Jenkins agent (or use Docker agent).
+- GitHub repo URL (replace `GITHUB_REPO_URL`).
+
+### Steps & Commands
+
+1. **Install Jenkins (Ubuntu example)**
+```bash
+# Update and install
+sudo apt update
+sudo apt install openjdk-11-jdk -y
+wget -q -O - https://pkg.jenkins.io/debian-stable/jenkins.io.key | sudo apt-key add -
+sudo sh -c 'echo deb https://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+sudo apt update
+sudo apt install jenkins -y
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+# Check status
+sudo systemctl status jenkins
+```
+**Expected output**
+- `Active: active (running)` from `systemctl status jenkins`.
+
+2. **Create a simple `Jenkinsfile` in the repo (Declarative pipeline using Maven)**
+Create file `Jenkinsfile` at repo root:
+```groovy
+pipeline {
+  agent any
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'main', url: 'GITHUB_REPO_URL'
+      }
+    }
+    stage('Build') {
+      steps {
+        sh 'mvn -B -DskipTests clean package'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh 'mvn test'
+      }
+    }
+    stage('Archive') {
+      steps {
+        archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+      }
+    }
+  }
+  post {
+    success {
+      echo 'BUILD SUCCESS'
+    }
+    failure {
+      echo 'BUILD FAILED'
+    }
+  }
+}
+```
+**Expected output in console (excerpt)**
+```
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Build)
+[INFO] Scanning for projects...
+[INFO] BUILD SUCCESS
+[Pipeline] echo
+BUILD SUCCESS
+[Pipeline] }
+```
+
+3. **Create a new Pipeline job in Jenkins UI**
+- Jenkins → New Item → Pipeline → name it `java-maven-pipeline` → Pipeline script from SCM → choose Git → put `GITHUB_REPO_URL` and credentials if needed → Script Path: `Jenkinsfile` → Save → Build Now.
+
+**Expected output**
+- Console output shows `Checkout`, `BUILD SUCCESS`, and archived artifact `target/your-app.jar`.
+
+4. **Create Pipeline View**
+- Install *Pipeline* plugin if not installed.
+- Jenkins → + → New View → Pipeline View → select job(s) → Save.
+**Expected output**
+- Visual pipeline stages and run history visible.
+
+### Notes / Troubleshooting
+- If `mvn` not found on agent, configure global tool configuration in Jenkins (Manage Jenkins → Global Tool Configuration).
+- If GitHub access fails, add credentials (SSH or username/password/personal access token) in Jenkins credentials.
+
+---
+
+## Q2 — Working with Minikube (Nginx Service Deployment)
+**Goal:** Start Minikube, deploy nginx, expose on port 8090.
+
+### Pre-reqs
+- Docker or a VM driver (docker driver recommended).
+- `kubectl` and `minikube` installed.
+
+### Steps & Commands
+1. **Start Minikube**
+```bash
+minikube start --driver=docker
+```
+**Expected output (excerpt)**
+```
+😄  minikube vX.Y.Z on Ubuntu ...
+✨  Using the docker driver based on user configuration
+🏄  Done! kubectl is now configured to use "minikube"
+```
+
+2. **Create nginx deployment**
+```bash
+kubectl create deployment nginx-deploy --image=nginx
+```
+**Expected output**
+```
+deployment.apps/nginx-deploy created
+```
+
+3. **Expose service on port 8090**
+```bash
+kubectl expose deployment nginx-deploy --type=NodePort --port=80 --target-port=80 --name=nginx-svc
+# Find assigned nodePort
+kubectl get svc nginx-svc -o yaml
+kubectl get svc nginx-svc
+```
+**Expected output**
+```
+NAME        TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+nginx-svc   NodePort   10.96.0.123    <none>        80:XXXXX/TCP   10s
+```
+Note: `XXXXX` is the `nodePort` assigned (e.g., 30080).
+
+4. **Map NodePort to host port 8090 using minikube service**
+```bash
+minikube service nginx-svc --url
+# Example output:
+http://192.168.49.2:XXXXX
+# To access via localhost:8090
+minikube tunnel &   # optional for LoadBalancer, or use kubectl port-forward
+kubectl port-forward service/nginx-svc 8090:80
+# Now open http://localhost:8090 in browser
+```
+**Expected browser:** Default Nginx welcome page "Welcome to nginx!"
+
+5. **List pods and services**
+```bash
+kubectl get pods
+kubectl get svc
+```
+**Expected output**
+```
+NAME                             READY   STATUS    RESTARTS   AGE
+nginx-deploy-xxxxxxxxx-xxxxx     1/1     Running   0          1m
+...
+```
+
+### Notes / Troubleshooting
+- If `kubectl port-forward` fails due to permission, run as user in same context or use `minikube service` to open browser automatically:
+```bash
+minikube service nginx-svc
+```
+
+---
+
+## Q3 — Monitoring Tool – Nagios (Docker)
+**Goal:** Run official Nagios in Docker and access dashboard.
+
+### Steps & Commands
+1. **Pull Nagios image**
+```bash
+docker pull jasonrivers/nagios:latest
+```
+**Expected output**
+```
+latest: Pulling from jasonrivers/nagios
+Digest: sha256:...
+Status: Downloaded newer image for jasonrivers/nagios:latest
+```
+
+2. **Run container exposing ports (default Nagios uses 80 and sometimes 443)**
+```bash
+docker run -d --name nagios \
+  -p 8080:80 \
+  -v /srv/nagios/etc:/opt/nagios/etc \
+  -v /srv/nagios/var:/opt/nagios/var \
+  jasonrivers/nagios:latest
+```
+**Expected output**
+- Container starts: `docker ps` shows nagios with `0.0.0.0:8080->80/tcp`.
+
+3. **Access Nagios web UI**
+- Open `http://<host-ip>:8080` (or `http://localhost:8080` from same machine).
+- Default credentials (image-specific) — often `nagiosadmin` / `nagios` (check image docs).
+
+**Expected UI result**
+- Nagios dashboard showing hosts/services and current status, graphs for CPU/memory (if plugins configured).
+
+4. **Monitor CPU and memory**
+- For host monitoring, configure NRPE or use containerized node-exporter + Prometheus exporters or use built-in check_http/check_ping.
+- Example: add a host config that checks CPU load and memory (sample nagios check commands calling `check_load`, `check_procs`).
+
+### Notes / Troubleshooting
+- If dashboard blank, check container logs:
+```bash
+docker logs nagios
+```
+- Ensure volumes have correct config files to define host/service checks.
+
+---
+
+## Q4 — UML Sequence Diagram (ATM Withdrawal)
+**Goal:** Sequence diagram with Customer, ATM Machine, Bank Server, Cash Dispenser, Receipt Printer.
+
+### How to draw (Step-by-step using PlantUML or StarUML)
+**PlantUML text (you can paste into an online PlantUML server or local PlantUML):**
+```
+@startuml
+actor Customer
+participant "ATM Machine" as ATM
+participant "Bank Server" as Bank
+participant "Cash Dispenser" as Dispenser
+participant "Receipt Printer" as Printer
+
+Customer -> ATM : Insert Card
+ATM -> ATM : Prompt for PIN
+Customer -> ATM : Enter PIN
+ATM -> Bank : Validate(card, PIN)
+Bank -> ATM : ValidationResult(success/failure)
+alt success
+  ATM -> ATM : Prompt for withdrawal amount
+  Customer -> ATM : Enter amount
+  ATM -> Bank : CheckBalance(account, amount)
+  Bank -> ATM : BalanceOK / Insufficient
+  alt BalanceOK
+    ATM -> Dispenser : Dispense(amount)
+    Dispenser -> ATM : DispenseOK
+    ATM -> Bank : UpdateBalance(account, -amount)
+    Bank -> ATM : UpdateAck
+    ATM -> Printer : PrintReceipt(details)
+    Printer -> ATM : PrintOK
+    ATM -> Customer : Return Card & Cash & Receipt
+  else Insufficient
+    ATM -> Customer : Display "Insufficient Funds"
+  end
+else failure
+  ATM -> Customer : Display "Invalid PIN"
+end
+@enduml
+```
+
+**Expected Output**
+- Sequence showing interactions in order, branching on validation and balance checks.
+
+---
+
+# SET 2
+
+## Q1 — Jenkins Pipeline for a Web Project (Tomcat)
+**Goal:** Automate build and deploy of a web app to Tomcat using Jenkins.
+
+### Prereqs
+- Jenkins running.
+- Apache Tomcat installed on target server (or same host).
+- GitHub repo with WAR build (Maven `package` produces `.war`) or Node-based web app.
+
+### Steps & Commands (Maven Java Web app example)
+
+1. **Install Tomcat (Ubuntu example)**
+```bash
+sudo apt update
+sudo apt install tomcat9 -y
+sudo systemctl start tomcat9
+sudo systemctl enable tomcat9
+# Tomcat manager UI at http://localhost:8080 (credentials must be set in tomcat-users.xml)
+```
+
+2. **Sample `Jenkinsfile` to build and deploy WAR to Tomcat using `curl` to Tomcat Manager**
+```groovy
+pipeline {
+  agent any
+  environment {
+    GIT_REPO = 'GITHUB_REPO_URL'
+    TOMCAT_URL = 'http://TOMCAT_HOST:8080'
+    TOMCAT_USER = credentials('tomcat-user') // store in Jenkins credentials
+  }
+  stages {
+    stage('Checkout') {
+      steps { git url: "${env.GIT_REPO}" }
+    }
+    stage('Build') {
+      steps { sh 'mvn -B clean package' }
+    }
+    stage('Deploy') {
+      steps {
+        sh '''
+           WAR_FILE=$(ls target/*.war | head -n1)
+           curl --user ${TOMCAT_USER} --upload-file ${WAR_FILE} ${TOMCAT_URL}/manager/text/deploy?path=/myapp&update=true
+        '''
+      }
+    }
+  }
+  post {
+    success { echo 'Deployed to Tomcat' }
+  }
+}
+```
+
+**Expected Console Output**
+```
+[INFO] BUILD SUCCESS
+Uploading: /path/to/target/myapp.war ...
+OK - Deployed application at context path /myapp
+Deployed to Tomcat
+```
+
+3. **Verify in browser**
+- Open `http://TOMCAT_HOST:8080/myapp` — you should see the web app running.
+
+### Notes
+- Configure Tomcat Manager user in `/etc/tomcat9/tomcat-users.xml`.
+- For Node-based web apps, deploy via PM2 or Docker container; pipeline would build and copy files to webroot or build Docker image.
+
+---
+
+## Q2 — UML Class Diagram (Library Management)
+**Goal:** Class diagram with `Book`, `Member`, `Librarian`, `Loan/IssueRecord` etc.
+
+### Suggested classes with attributes & methods
+- **Book**
+  - attributes: `bookId`, `title`, `author`, `isbn`, `availableCopies`
+  - methods: `isAvailable()`, `borrow()`, `return()`
+- **Member**
+  - attributes: `memberId`, `name`, `email`, `borrowedBooks: List<Loan>`
+  - methods: `borrowBook(book)`, `returnBook(book)`
+- **Librarian**
+  - attributes: `staffId`, `name`
+  - methods: `addBook()`, `removeBook()`, `issueBook()`
+- **Loan (IssueRecord)**
+  - attributes: `loanId`, `bookId`, `memberId`, `issueDate`, `dueDate`, `returnedDate`, `fine`
+  - methods: `calculateFine()`
+
+### How to draw (StarUML)
+- Create classes and connect with associations:
+  - `Member 1 --- * Loan`
+  - `Book 1 --- * Loan`
+  - `Librarian 1 --- * Book` (manages)
+- Add multiplicities: a member can have 0..* loans, a book can be loaned 0..* times.
+
+---
+
+## Q3 — Working with Webhooks to Trigger Builds in Jenkins
+**Goal:** Configure GitHub webhook to auto-trigger Jenkins build on push.
+
+### Steps & Commands
+1. **Install GitHub plugin in Jenkins** (Manage Jenkins → Manage Plugins → install "GitHub" and "GitHub Integration Plugin").
+
+2. **Create Jenkins job (Pipeline) that uses SCM**
+- In Jenkins job: Pipeline → Definition: Pipeline script from SCM → Git → Repo URL → Credentials.
+
+3. **Configure GitHub Webhook**
+- On GitHub repo → Settings → Webhooks → Add webhook.
+  - Payload URL: `http://<jenkins-host>:8080/github-webhook/`
+  - Content type: `application/json`
+  - Secret: (optional, recommended) — same secret configured in Jenkins GitHub plugin.
+  - Trigger: push events.
+
+4. **Ensure Jenkins endpoint accessible**
+- If Jenkins is behind firewall or local, either use ngrok or host Jenkins public IP for GitHub to reach it.
+
+5. **Push a code change**
+```bash
+# make a small change
+git checkout -b test-webhook
+echo "// test" >> README.md
+git add README.md
+git commit -m "webhook test"
+git push origin test-webhook
+# then merge or push to main to trigger webhook
+```
+
+**Expected Jenkins Behavior**
+- Webhook call received → Jenkins console shows `Started by GitHub push by <user>` and build executes automatically.
+
+**Debugging**
+- Check Delivery logs in GitHub webhook settings — shows payload and response status code (200 OK expected).
+- Check Jenkins `Manage Jenkins` → `System Log` or `GitHub` webhook logs.
+
+---
+
+## Q4 — Create an EC2 Instance (Ubuntu) and Deploy an Application
+**Goal:** Launch EC2, install Docker, clone repo, write Dockerfile, build image, run container and show deployment via public IP.
+
+### Steps & Commands
+
+1. **Launch EC2 (via AWS console)**
+- Use Ubuntu 22.04 LTS AMI.
+- Security group: allow SSH (22), HTTP (80) or app port (e.g., 8080).
+- Note public IPv4 address `EC2_PUBLIC_IP`.
+
+2. **SSH into instance**
+```bash
+ssh -i ~/keys/mykey.pem ubuntu@EC2_PUBLIC_IP
+```
+
+3. **Install Docker**
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version
+```
+**Expected output**
+```
+Docker version 20.10.x, build ...
+```
+
+4. **Clone application from GitHub**
+```bash
+git clone GITHUB_REPO_URL app
+cd app
+```
+
+5. **Create `Dockerfile`** (example for Node.js app)
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+EXPOSE 3000
+CMD ["node", "index.js"]
+```
+
+6. **Build Docker image and run**
+```bash
+docker build -t myapp:latest .
+docker run -d -p 80:3000 --name myapp myapp:latest
+```
+**Expected output**
+- `docker ps` shows container `myapp` with `0.0.0.0:80->3000/tcp`.
+- Access `http://EC2_PUBLIC_IP` to see the app.
+
+7. **Optional: Use Docker Compose**
+Create `docker-compose.yml` and run:
+```bash
+docker-compose up -d
+```
+
+### Notes / Troubleshooting
+- Ensure security group allows inbound port (80).
+- If app uses environment variables, pass `-e` flags or use Compose.
+- For persistence, mount volumes or use managed databases.
+
+---
+
+# Appendix — Useful commands summary
+
+- Jenkins:
+  - Start: `sudo systemctl start jenkins`
+  - View logs: `sudo journalctl -u jenkins -f`
+- Minikube:
+  - Start: `minikube start`
+  - Deploy: `kubectl create deployment nginx --image=nginx`
+- Docker:
+  - Run container: `docker run -d -p 8080:80 image`
+  - Logs: `docker logs -f container`
+- AWS:
+  - SSH: `ssh -i key.pem ubuntu@EC2_IP`
+  - Security groups must be configured.
+
+---
+
+# References
+- Lab question files (Set 1 & Set 2) provided by the user:  
+  fileciteturn0file0  
+  fileciteturn0file1
+
+---
+
