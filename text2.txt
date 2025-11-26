@@ -1,0 +1,221 @@
+CICD
+1.Sign in in Jenkins
+2.New Item click
+3.Name Project and select freestyle
+4.Source Code management->GitHub->Git URL->Paste it Specify Branch
+5.Scroll down Add Build Step->Invoke top level maven targets
+In that we have Maven Version selecter MAVEN_HOME/some thing will come
+6.In that we have goals -> type clean
+7.Scroll down Add Build Step->Invoke top level maven targets
+In that we have Maven Version selecter MAVEN_HOME/some thing will come
+8.In that we have goals -> type install
+Down Post Build actions->Add Post Build Action->Archive the artifacts->**/*
+Down Post Build actions->Add Post Build Action->Build Other Projects->Some test project Sample Maven Test->Trigger only if build is stable
+Sample Maven Test wont work as there is no project like that
+so we need to create again
+new->freestyle->Sample Maven Test
+in that Build Triggers->Build Env->Delete workspace before Build starts->
+Build Steps->Add Build->Copy Artifacts->Our Prev Build->Artifacts to copy **/*->Stable Build Only
+Build Steps->Add Build->Invoke top level targets->Goals->test
+To run we need to make a pipe line->+ pipe line->name it Sample pileline->Buld PipeLine View in down->Scrool Down->Select Intital Job->Your Project Build->Apply and Ok
+Run it once open
+These are for Jar
+FOr War(Build Test and Deploy)
+1.Sign in in Jenkins
+2.New Item click
+3.Name Project and select freestyle
+4.Source Code management->GitHub->Git URL->Paste it Specify Branch
+Build Triggers->Poll thingy->***** for every min taking
+5.Scroll down Add Build Step->Invoke top level maven targets
+In that we have Maven Version selecter MAVEN_HOME/some thing will come
+6.In that we have goals -> type clean
+7.Scroll down Add Build Step->Invoke top level maven targets
+In that we have Maven Version selecter MAVEN_HOME/some thing will come
+8.In that we have goals -> type install
+Down Post Build actions->Add Post Build Action->Archive the artifacts->**/*
+Down Post Build actions->Add Post Build Action->Build Other Projects->Some test project Sample Maven Test->Trigger only if build is stable
+Sample Maven Test wont work as there is no project like that
+so we need to create again
+new->freestyle->Sample Maven Test
+in that Build Triggers->Build Env->Delete workspace before Build starts->
+Build Steps->Add Build->Copy Artifacts->Our Prev Build->Artifacts to copy **/*->Stable Build Only
+Build Steps->Add Build->Invoke top level targets->Goals->test
+Post Build Actions->Build Other Projects->Name of new Project Deploy->Trigger only if Build is Stable
+New Item->freestyle->Deploy->Build triggers->Delete workspace before Build->Add Build->Copy Artifacts->Project Name->**/*->Stable Build Only
+Build Actions->Add build->invoke top maven targets->test
+Post Build->Add Post Build->Deploy War-> file **/*.war ->Context Path ->"The path in tomcat" like Sampplewebproject
+Container->Add container->Tomcat 9.0 ->Credentials->Add Jenkins->Make sure Tomcat is running->Tomcat.xml has user name and password->Click Add->then select the Admin/***->Tomcat URL where it is running->Apply and Save
+
+New Pipeline->SampleWebProjectBuild-> all the came->Run
+
+Run on local 
+
+Docker Commands
+Login in DOcker and Docker Hub
+Terminal as Adminstrator
+docker --version
+docker pull hello world
+docker images
+docker run --name container name -d image_name //-d app will run on front end so we give -d
+docker ps -a ??gives all containers running or not running
+docker rm <container id>
+docker rmi <image name>
+docker pull redis
+
+Deploying a local image in docker 
+Create a folder in that create a new folder with project name so now we implement redis so redis
+create a new txt document name Dockerfile and remove extension so that the file type is file
+docker build -t name . //. is required
+docker login
+docker commit <name> <username path>
+docker exec -it <container name><required feild>
+docker push <container name>
+docker pull <container name>
+
+
+MiniCube 
+
+minicube start //creates a Kubernetes cluster on local
+we need to create ngix application
+kubectl create deployement myngix --image=ngix
+kubectl get deployemnts //gives the ngix apps running in it
+//now in order to run outside kubernetis
+kubectl expose deployment myngix --type=NodePort --port=80 --target-port=80 //helping expose deployment --type=NodePort helps in outside port access on port 80 --target-port is pod port
+kubectl scale deployment myngix --replicas=4 //creating more 4 copies
+kubctl get pods //gives pod info
+kubctl port-forward svc/myngix 8081:80 //outside port 8081 comms with inside port 80
+
+minikube dashboard //gives minicube dashboard launched
+kubectl delete deployement myngix
+kubectl delete service myngix
+minicube stop
+
+
+nagios
+
+docker pull jasonrivers/nagios:latest
+docker run --name nagiosdemo -p 8888:80 jasonrivers/nagios:latest
+
+AWS
+
+login into aws some infrastucutre
+go to modules launch AWS Academey Learner Lab Accept terms
+start lab in the opened the max time to be open is 4 hrs
+then click on green light aws this is dashboard
+click on EC2 where we can launch instances Elastic compute cloud
+launch instance button
+give a name 
+
+we go in quick start and click ubuntu
+in instance type we t2.micro 
+click on create key pair for secure connection 
+give a name type RSA format .pem
+save it in folder
+in network settings the check boxes are needed to be ticked
+checkout storage and create the instance
+come out and you select the check box of the instance and click connect aftersome time
+connect via ssh
+go to the path where you saved the .pem file
+copy paste the given command 
+the saved project is stored in GitHub
+you hosted ubuntu in aws where we type sudo apt update,sudo apt-get install docker.io,sudo apt install git,sudo apt install nano
+clone the repo into this
+create a Dokcerfile nano Dockerfile
+FROM ngix:alpine
+COPY ./usr/share/ngix/html save and exit
+sudo docker build -t mywebapp .
+sudo docker run -d -p 80:80 mywebapp
+
+now back to aws site we are now in connect to instance go one directory back on above and copy the ip if not working remove https and keep http
+
+
+create a new instance 
+new name
+quick start ubuntu
+create keypair and save it
+all check boxes in network setting
+select and connect
+copy ssh command and go to the path where the keypair is stored
+paste 
+sudo apt update,sudo apt-get install docker.io,sudo apt install git,sudo apt install nano
+clone the repo
+nano Dockerfile
+FROM tomcat:9-jdk11/21
+COPY target/*.war /usr/local/tomcat/webapps/
+save and exit
+sudo docker build -d --name mavenProject
+sudo docker run -d -p:9090:8080 mavenProject
+now back to aws site we are now in connect to instance go one directory back on above and copy the ip if not working remove https and keep http
+sometimes the port maynot be avaialbe so we need to go to instances and security bottom
+in that if we have 9090 port it when we scroll down and table is chill else
+if not scrool up security groups click it
+edit inbound rules
+constom TCP 9090 0.0.0.0
+
+starUML
+in use case we donthave user so we click on add not like regular add diagram
+
+ChatGPT said:
+
+Here’s the full, simple setup to connect your local Git to your GitHub account.
+
+✅ 1. Set your Git username & email
+
+(GitHub uses your email to associate commits.)
+
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+✅ 2. Create an SSH key (recommended)
+
+This lets you push to GitHub without typing your password.
+
+Generate a new SSH key
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+
+Press Enter for defaults.
+
+Add the key to the SSH agent
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+
+Copy the SSH public key
+cat ~/.ssh/id_ed25519.pub
+
+
+Copy the output.
+
+✅ 3. Add the SSH key to GitHub
+
+Go to GitHub → Settings → SSH and GPG keys
+
+Click New SSH key
+
+Paste the key → Save
+
+✅ 4. Test the connection
+ssh -T git@github.com
+
+
+If it works, you’ll see:
+
+Hi <your-username>! You've successfully authenticated...
+
+✅ 5. Clone a repo or create a new one
+Clone via SSH:
+git clone git@github.com:your-username/your-repo.git
+
+Or create a new repo:
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin git@github.com:your-username/your-repo.git
+git push -u origin main
+
+🎉 You’re done
+
+Your computer is now fully linked to your GitHub account.
+
+If you want, tell me your OS (Windows/macOS/Linux) and I’ll tailor the steps or fix any errors you get.
